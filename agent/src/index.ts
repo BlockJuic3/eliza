@@ -29,6 +29,7 @@ import { zgPlugin } from "@ai16z/plugin-0g";
 import { bootstrapPlugin } from "@ai16z/plugin-bootstrap";
 import createGoatPlugin from "@ai16z/plugin-goat";
 // import { intifacePlugin } from "@ai16z/plugin-intiface";
+import { blockjuic3Plugin } from "@ai16z/plugin-blockjuic3";
 import { DirectClient } from "@ai16z/client-direct";
 import { aptosPlugin } from "@ai16z/plugin-aptos";
 import {
@@ -448,6 +449,8 @@ export async function createAgent(
         character.name
     );
 
+    console.log("CHARACTER", character);
+
     nodePlugin ??= createNodePlugin();
 
     const teeMode = getSecret(character, "TEE_MODE") || "OFF";
@@ -468,6 +471,8 @@ export async function createAgent(
         );
     }
 
+    console.log("CHARACTER.PLUGINS", character.plugins);
+
     return new AgentRuntime({
         databaseAdapter: db,
         token,
@@ -477,6 +482,7 @@ export async function createAgent(
         // character.plugins are handled when clients are added
         plugins: [
             bootstrapPlugin,
+            blockjuic3Plugin,
             getSecret(character, "CONFLUX_CORE_PRIVATE_KEY")
                 ? confluxPlugin
                 : null,
