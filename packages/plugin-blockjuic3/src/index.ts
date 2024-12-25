@@ -1,34 +1,26 @@
 import { Plugin } from "@ai16z/eliza";
-import * as providers from "./providers/index.ts";
+import { ERC20EventsProvider } from "./providers/erc20-events.provider";
+import { Univ3EventsProvider } from "./providers/univ3-events.provider.ts";
+import { ERC20Service } from "./services/erc20.service.ts";
+import { DefillamaService } from "./services/defillama.service.ts";
 
-const dummyAction = {
-    similes: ["analyze block", "inspect block", "examine block"],
-    description:
-        "Analyze an EVM block for interesting transactions and patterns",
-    examples: [
-        [
-            {
-                user: "user",
-                content: { text: "What happened in block 12345?" },
-            },
-            {
-                user: "assistant",
-                content: { text: "Let me analyze that block for you..." },
-            },
-        ],
-    ],
-    handler: async (runtime, message) => {
-        return "Block analysis coming soon...";
-    },
-    name: "analyzeBlock",
-    validate: async () => true,
+const getProviders = () => {
+    return [
+        new ERC20EventsProvider(
+            new ERC20Service(new DefillamaService()),
+            "https://rpc.ankr.com/base"
+        ),
+        new Univ3EventsProvider(
+            new ERC20Service(new DefillamaService()),
+            "https://rpc.ankr.com/base"
+        ),
+    ];
 };
 
 export const blockjuic3Plugin: Plugin = {
     name: "blockjuic3",
     description: "Squeezing the fuck out of EVM blocks",
-    providers: [providers.erc20TransfersProvider],
-    actions: [dummyAction],
+    providers: getProviders(),
 };
 
 export default blockjuic3Plugin;

@@ -1,22 +1,46 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
-    aggregateTokenAddresses,
-    decodeTransfer,
-    enrichTransfersWithTokenInfo,
     ERC20Token,
-    ERC20Transfer,
-    fetchRawTransfersFromLatestBlock,
-    getTokenInfoFromDefillama,
-    getTransfersEvents,
     RawERC20Transfer,
     TransferLog,
-} from "../../providers/erc20-transfers";
-import { Address, getAddress } from "viem";
-import { base } from "viem/chains";
+    ERC20EventsProvider,
+} from "../../providers";
+import { Address } from "viem";
+import { DefillamaService } from "../../services";
 
-describe("erc20-transfers", () => {
+class TestableERC20EventsProvider extends ERC20EventsProvider {
+    public exposedDecodeTransfer(log: TransferLog) {
+        return this.decodeTransfer(log);
+    }
+
+    public exposedAggregateTokenAddresses(transfers: RawERC20Transfer[]) {
+        return this.aggregateTokenAddresses(transfers);
+    }
+
+    public exposedEnrichTransfersWithTokenInfo(
+        transfers: RawERC20Transfer[],
+        tokenData: Map<Address, ERC20Token>
+    ) {
+        return this.enrichTransfersWithTokenInfo(transfers, tokenData);
+    }
+
+    public exposedFetchRawTransfersFromLatestBlock() {
+        return this.fetchRawTransfersFromLatestBlock();
+    }
+}
+
+describe("ERC20EventsProvider", () => {
+    let provider: TestableERC20EventsProvider;
+
+    beforeEach(() => {
+        provider = new TestableERC20EventsProvider(
+            new DefillamaService(),
+            "https://rpc.ankr.com/eth_sepolia"
+        );
+    });
+
     it("should fetch raw transfers from latest block", async () => {
-        const logs = await fetchRawTransfersFromLatestBlock();
+        const logs = await provider.exposedFetchRawTransfersFromLatestBlock();
         expect(logs).toBeDefined();
         expect(Array.isArray(logs)).toBe(true);
         expect(logs[0]).toMatchObject({
@@ -27,17 +51,11 @@ describe("erc20-transfers", () => {
             data: expect.any(String),
             blockHash: expect.any(String),
             blockNumber: expect.any(BigInt),
-            blockTimestamp: expect.any(String),
             transactionHash: expect.any(String),
             transactionIndex: expect.any(Number),
             logIndex: expect.any(Number),
             removed: expect.any(Boolean),
         });
-    });
-
-    it.only("shouldl run the whole pipeline", async () => {
-        const transfers = await getTransfersEvents("BlockJuic3");
-        console.log(transfers);
     });
 
     it("should decode transfer log", async () => {
@@ -49,7 +67,6 @@ describe("erc20-transfers", () => {
                 BigInt(1000000000000000000),
             ],
             address: "0x4200000000000000000000000000000000000006",
-            // @ts-expect-error TODO: fix this
             topics: [
                 "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
                 "0x0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24",
@@ -66,7 +83,7 @@ describe("erc20-transfers", () => {
             removed: false,
         };
 
-        const decoded = decodeTransfer(mockedLog);
+        const decoded = provider.exposedDecodeTransfer(mockedLog);
         expect(decoded).toMatchObject({
             from: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
             to: "0x566e8b2606CF26335Bf476E4476e5F634adD829C",
@@ -90,44 +107,11 @@ describe("erc20-transfers", () => {
                 token: "0x4200000000000000000000000000000000000006",
             },
         ];
-        const addresses = aggregateTokenAddresses(transfers);
+        const addresses = provider.exposedAggregateTokenAddresses(transfers);
         expect(addresses).toContain(
             "0x4200000000000000000000000000000000000006"
         );
     });
-
-    // it("should fetch token data", async () => {
-    //     const tokens: Set<Address> = new Set();
-    //     // WETH
-    //     tokens.add(getAddress("0x4200000000000000000000000000000000000006"));
-    //     // USDC
-    //     tokens.add(getAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"));
-
-    //     const tokenData = await batchGetTokenInfo(tokens);
-
-    //     expect(tokenData).toEqual(
-    //         new Map([
-    //             [
-    //                 "0x4200000000000000000000000000000000000006",
-    //                 {
-    //                     address: "0x4200000000000000000000000000000000000006",
-    //                     name: "Wrapped Ether",
-    //                     symbol: "WETH",
-    //                     decimals: 18,
-    //                 },
-    //             ],
-    //             [
-    //                 "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    //                 {
-    //                     address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    //                     name: "USD Coin",
-    //                     symbol: "USDC",
-    //                     decimals: 6,
-    //                 },
-    //             ],
-    //         ])
-    //     );
-    // });
 
     it("should enrich transfers with token info", async () => {
         const transfers: RawERC20Transfer[] = [
@@ -144,7 +128,6 @@ describe("erc20-transfers", () => {
                 "0x4200000000000000000000000000000000000006",
                 {
                     address: "0x4200000000000000000000000000000000000006",
-                    name: "Wrapped Ether",
                     symbol: "WETH",
                     decimals: 18,
                     price: 1800,
@@ -152,7 +135,7 @@ describe("erc20-transfers", () => {
             ],
         ]);
 
-        const enrichedTransfers = enrichTransfersWithTokenInfo(
+        const enrichedTransfers = provider.exposedEnrichTransfersWithTokenInfo(
             transfers,
             tokenData
         );
@@ -167,17 +150,5 @@ describe("erc20-transfers", () => {
                 ),
             },
         ]);
-    });
-
-    it("should fetch token info from defillama", async () => {
-        const tokenInfo = await getTokenInfoFromDefillama(
-            [
-                "0x4200000000000000000000000000000000000006",
-                "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-            ],
-            base
-        );
-        console.log(tokenInfo);
-        expect(tokenInfo).toBeDefined();
     });
 });
